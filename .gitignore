@@ -1,0 +1,32 @@
+# Environment variables and secrets (CRITICAL)
+.env
+.env.local
+*.env
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Temporary uploaded data (prevent leaking private user datasets)
+data/uploads/*
+!data/uploads/.gitkeep
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Database files
+*.duckdb
+*.db
+*.sqlite3

@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Analytics Assistant</title>
+  <!-- Chart.js for clean data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- SheetJS for local Excel parsing if offline -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --black: #0f172a;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --blue: #2563eb;
+      --blue-hover: #1d4ed8;
+      --blue-light: #eff6ff;
+      --blue-border: #bfdbfe;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 32px 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 1. Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 2px solid var(--black);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--black);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-blue {
+      background: var(--blue-light);
+      color: var(--blue);
+      border: 1px solid var(--blue-border);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .source-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+    .status-dot.active { background: #22c55e; }
+
+    /* 2. Metric Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-value {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--black);
+      margin-top: 4px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    /* 3. Compact Schema & Nulls Accordion */
+    .schema-accordion {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .schema-accordion summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--black);
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .schema-accordion summary:hover {
+      color: var(--blue);
+    }
+
+    .schema-table-wrap {
+      margin-top: 10px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      max-height: 220px;
+    }
+
+    /* 4. Simple Upload Card */
+    .upload-card {
+      background: var(--card-bg);
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      padding: 22px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .upload-card:hover {
+      border-color: var(--blue);
+      background: #fafcff;
+    }
+
+    .upload-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 4px;
+    }
+
+    .upload-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .link-blue {
+      color: var(--blue);
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    /* 5. Question & Search Card */
+    .query-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .query-input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .query-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      color: var(--black);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .query-input:focus {
+      border-color: var(--blue);
+    }
+
+    .btn-blue {
+      background: var(--blue);
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .btn-blue:hover {
+      background: var(--blue-hover);
+    }
+
+    .suggestions-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .sugg-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .sugg-pill {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .sugg-pill:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: var(--blue-light);
+    }
+
+    /* 6. Results Workspace */
+    .results-card {
+      display: none;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      padding: 20px;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .answer-heading {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--black);
+    }
+
+    .answer-body {
+      font-size: 13.5px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .insights-list {
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .insights-list li { margin-bottom: 4px; }
+
+    /* Results Action Toolbar */
+    .table-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0 4px;
+      border-top: 1px solid var(--border);
+    }
+
+    .table-count {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-tool {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      color: var(--black);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-tool:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: var(--blue-light);
+    }
+
+    /* Chart Box */
+    .chart-box {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      background: #ffffff;
+    }
+
+    .chart-canvas-wrap {
+      position: relative;
+      height: 220px;
+      width: 100%;
+    }
+
+    /* Table Container */
+    .table-box {
+      overflow-x: auto;
+      max-height: 260px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--black);
+      color: #ffffff;
+      padding: 7px 12px;
+      font-weight: 600;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      position: sticky;
+      top: 0;
+    }
+
+    td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    tbody tr:hover {
+      background: var(--blue-light);
+    }
+
+    details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--blue);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    pre code {
+      display: block;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      margin-top: 6px;
+      overflow-x: auto;
+    }
+
+    #fileInput { display: none; }
+
+    @media (max-width: 640px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .query-input-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden File Input -->
+  <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="uploadFile()">
+
+  <div class="container">
+    
+    <!-- 1. Top Header -->
+    <header class="header">
+      <div class="brand-title">
+        <span>Data Analytics Assistant</span>
+        <span class="badge-blue">DuckDB</span>
+      </div>
+      <div class="source-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="sourceStatus">Ready • Upload a spreadsheet</span>
+      </div>
+    </header>
+
+    <!-- 2. Minimal Stats Grid -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">File Attached</div>
+        <div class="stat-value" id="statFile">None</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Rows</div>
+        <div class="stat-value" id="statRows">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Columns</div>
+        <div class="stat-value" id="statCols">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Engine</div>
+        <div class="stat-value" id="statEngine" style="color:var(--blue); font-size:16px;">In-Memory</div>
+      </div>
+    </section>
+
+    <!-- 3. Compact "Inspect Columns & Nulls" Accordion -->
+    <details class="schema-accordion" id="schemaAccordion" style="display:none;">
+      <summary>
+        <span>🔍 Inspect Columns &amp; Data Quality (<span id="schemaColCount">0</span> columns)</span>
+        <span style="font-size:11px; color:var(--text-muted);">Click to expand/collapse</span>
+      </summary>
+      <div class="schema-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Missing Values %</th>
+              <th>Unique Count</th>
+            </tr>
+          </thead>
+          <tbody id="schemaTableBody"></tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- 4. Simple Upload Card -->
+    <div class="upload-card" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-title">📁 Click to choose your CSV or Excel file</div>
+      <div class="upload-sub">Or drag and drop your file here &nbsp;•&nbsp; <span class="link-blue" onclick="event.stopPropagation(); loadSampleData();">load sample sales dataset</span></div>
+    </div>
+
+    <!-- 5. Ask Questions Card -->
+    <section class="query-card">
+      <div class="query-input-row">
+        <input 
+          type="text" 
+          id="questionInput" 
+          class="query-input" 
+          placeholder="Ask a question about your uploaded data (e.g., Which category has the highest sales?)"
+          onkeydown="if(event.key === 'Enter') submitQuestion()"
+        >
+        <button class="btn-blue" id="askBtn" onclick="submitQuestion()">Ask Question</button>
+      </div>
+
+      <!-- Suggested question pills -->
+      <div class="suggestions-row" id="suggestionsRow">
+        <span class="sugg-label">Try:</span>
+        <span class="sugg-pill" onclick="quickAsk('Show top 5 categories by sales')">Top 5 by sales</span>
+        <span class="sugg-pill" onclick="quickAsk('Show summary statistics for numeric columns')">Summary stats</span>
+        <span class="sugg-pill" onclick="quickAsk('What is the total revenue and average order value?')">Revenue &amp; average</span>
+      </div>
+    </section>
+
+    <!-- 6. Results Section -->
+    <section class="results-card" id="resultsCard">
+      <div class="answer-heading" id="resultQuestion">Analysis Result</div>
+      <div class="answer-body" id="resultSummary">Thinking...</div>
+      
+      <ul class="insights-list" id="resultInsights"></ul>
+
+      <!-- Clean Blue Bar Chart -->
+      <div class="chart-box" id="chartBox" style="display:none;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;" id="chartTitle">Chart View</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="myChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Results Action Toolbar -->
+      <div class="table-toolbar">
+        <span class="table-count" id="tableRowCount">0 rows</span>
+        <div class="toolbar-actions">
+          <button class="btn-tool" id="copySqlBtn" onclick="copySql()">📋 Copy SQL</button>
+          <button class="btn-tool" onclick="downloadCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Results Data Table -->
+      <div class="table-box" id="tableBox"></div>
+
+      <!-- View Executed SQL Toggle -->
+      <details>
+        <summary>View Executed SQL</summary>
+        <pre><code id="sqlCode"></code></pre>
+      </details>
+    </section>
+
+  </div>
+
+  <script>
+    let activeDatasetId = null;
+    let loadedFileName = null;
+    let loadedDataRows = [];
+    let loadedColumns = [];
+    let currentQueryRows = [];
+    let currentRawSql = '';
+    let chartInstance = null;
+    let backendAvailable = false;
+
+    const API_BASE = window.location.origin.includes('8000') ? '' : 'http://127.0.0.1:8000';
+
+    async function checkBackend() {
+      try {
+        const res = await fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(1200) });
+        if (res.ok) {
+          backendAvailable = true;
+          document.getElementById('statusDot').classList.add('active');
+          document.getElementById('sourceStatus').textContent = 'Backend Connected • Ready';
+        }
+      } catch (e) {
+        backendAvailable = false;
+        document.getElementById('statusDot').classList.remove('active');
+        document.getElementById('sourceStatus').textContent = 'Local Browser Mode Active';
+      }
+    }
+    checkBackend();
+
+    function quickAsk(text) {
+      document.getElementById('questionInput').value = text;
+      submitQuestion();
+    }
+
+    function renderSchemaAccordion(columns) {
+      const accordion = document.getElementById('schemaAccordion');
+      const countSpan = document.getElementById('schemaColCount');
+      const tbody = document.getElementById('schemaTableBody');
+
+      if (!columns || !columns.length) {
+        accordion.style.display = 'none';
+        return;
+      }
+
+      accordion.style.display = 'block';
+      countSpan.textContent = columns.length;
+      tbody.innerHTML = columns.map(c => `
+        <tr>
+          <td><b>${c.name}</b></td>
+          <td><code>${c.dtype}</code></td>
+          <td>${c.null_percentage}%</td>
+          <td>${c.unique_count}</td>
+        </tr>
+      `).join('');
+    }
+
+    function parseCSVText(text) {
+      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (!lines.length) return { headers: [], rows: [] };
+
+      function parseLine(line) {
+        const row = [];
+        let inQuotes = false;
+        let entry = '';
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              entry += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (c === ',' && !inQuotes) {
+            row.push(entry.trim());
+            entry = '';
+          } else {
+            entry += c;
+          }
+        }
+        row.push(entry.trim());
+        return row;
+      }
+
+      const rawHeaders = parseLine(lines[0]);
+      const headers = rawHeaders.map((h, i) => 
+        h.replace(/^["']|["']$/g, '').trim().replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase() || `col_${i + 1}`
+      );
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseLine(lines[i]);
+        if (values.length === headers.length) {
+          const obj = {};
+          headers.forEach((h, idx) => {
+            const raw = values[idx].replace(/^["']|["']$/g, '').trim();
+            const num = Number(raw);
+            obj[h] = (raw !== '' && !isNaN(num)) ? num : raw;
+          });
+          rows.push(obj);
+        }
+      }
+      return { headers, rows };
+    }
+
+    function profileColumns(headers, rows) {
+      const rowCount = rows.length;
+      return headers.map(name => {
+        const values = rows.map(r => r[name]);
+        const nonNulls = values.filter(v => v !== null && v !== undefined && v !== '');
+        const nullCount = rowCount - nonNulls.length;
+        const nullPct = rowCount > 0 ? Math.round((nullCount / rowCount) * 100) : 0;
+        const uniqueSet = new Set(nonNulls);
+        const isNum = nonNulls.length > 0 && nonNulls.every(v => typeof v === 'number');
+
+        return {
+          name: name,
+          dtype: isNum ? 'number' : 'string',
+          null_percentage: nullPct,
+          unique_count: uniqueSet.size
+        };
+      });
+    }
+
+    async function uploadFile() {
+      const fileInput = document.getElementById('fileInput');
+      if (!fileInput.files || !fileInput.files.length) return;
+
+      const file = fileInput.files[0];
+      loadedFileName = file.name;
+      document.getElementById('sourceStatus').textContent = `Reading ${file.name}...`;
+
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (ext === 'csv') {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const csvText = e.target.result;
+          const parsed = parseCSVText(csvText);
+          handleDatasetLoaded(file.name, parsed.rows, parsed.headers);
+          syncToBackend(file);
+        };
+        reader.readAsText(file);
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            if (window.XLSX) {
+              const workbook = XLSX.read(e.target.result, { type: 'binary' });
+              const sheetName = workbook.SheetNames[0];
+              const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+              if (sheetData && sheetData.length) {
+                const headers = Object.keys(sheetData[0]);
+                handleDatasetLoaded(file.name, sheetData, headers);
+              }
+            }
+          } catch (err) {
+            console.warn('Local Excel read fallback:', err);
+          }
+          syncToBackend(file);
+        };
+        reader.readAsBinaryString(file);
+      } else {
+        alert("Please upload a .csv, .xlsx, or .xls file.");
+      }
+    }
+
+    function handleDatasetLoaded(filename, rows, headers) {
+      if (!rows || !rows.length) {
+        alert(`No records found in ${filename}`);
+        return;
+      }
+
+      loadedDataRows = rows;
+      const cols = profileColumns(headers, rows);
+      loadedColumns = cols;
+
+      document.getElementById('statFile').textContent = filename;
+      document.getElementById('statRows').textContent = rows.length.toLocaleString();
+      document.getElementById('statCols').textContent = cols.length;
+      document.getElementById('sourceStatus').textContent = `${filename} (${rows.length.toLocaleString()} rows)`;
+
+      renderSchemaAccordion(cols);
+      updateSuggestions(cols);
+
+      renderResults(
+        `Loaded "${filename}" successfully with ${rows.length.toLocaleString()} rows and ${cols.length} columns. Here is a preview:`,
+        cols.slice(0, 3).map(c => `Column "${c.name}" (${c.dtype}): ${c.unique_count} distinct values, ${c.null_percentage}% missing`),
+        rows.slice(0, 5),
+        `SELECT * FROM ${filename.replace(/[^a-zA-Z0-9]/g, '_')} LIMIT 5;`
+      );
+    }
+
+    function updateSuggestions(columns) {
+      const numCol = columns.find(c => c.dtype === 'number');
+      const catCol = columns.find(c => c.dtype === 'string' && c.unique_count <= 25);
+      const row = document.getElementById('suggestionsRow');
+
+      if (numCol && catCol) {
+        row.innerHTML = `
+          <span class="sugg-label">Try:</span>
+          <span class="sugg-pill" onclick="quickAsk('Top 5 ${catCol.name} by ${numCol.name}')">Top ${catCol.name} by ${numCol.name}</span>
+          <span class="sugg-pill" onclick="quickAsk('Average ${numCol.name} per ${catCol.name}')">Avg ${numCol.name}</span>
+          <span class="sugg-pill" onclick="quickAsk('Total ${numCol.name}')">Total ${numCol.name}</span>
+        `;
+      }
+    }
+
+    async function syncToBackend(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/datasets/upload`, { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          activeDatasetId = data.dataset_id;
+          backendAvailable = true;
+          document.getElementById('statusDot').classList.add('active');
+          document.getElementById('sourceStatus').textContent = `${data.filename} • Backend Connected`;
+        }
+      } catch (err) {
+        console.log("Operating in local browser analytics mode.");
+      }
+    }
+
+    function loadSampleData() {
+      const sampleRows = [
+        { category: "Electronics", region: "North", sales: 45200, orders: 310, profit: 12400 },
+        { category: "Furniture", region: "South", sales: 28900, orders: 195, profit: 6200 },
+        { category: "Office Supplies", region: "East", sales: 19400, orders: 480, profit: 7100 },
+        { category: "Hardware", region: "West", sales: 34100, orders: 220, profit: 8900 },
+        { category: "Apparel", region: "North", sales: 22800, orders: 360, profit: 5400 }
+      ];
+      handleDatasetLoaded("sample_sales_data.csv", sampleRows, Object.keys(sampleRows[0]));
+    }
+
+    async function uploadCurrentDataToBackend() {
+      if (!loadedDataRows.length) return;
+      try {
+        const headers = Object.keys(loadedDataRows[0]);
+        const csvLines = [headers.join(',')];
+        loadedDataRows.forEach(r => {
+          csvLines.push(headers.map(h => {
+            const v = r[h] ?? '';
+            return String(v).includes(',') ? `"${v}"` : v;
+          }).join(','));
+        });
+        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv' });
+        const formData = new FormData();
+        formData.append('file', blob, loadedFileName || 'dataset.csv');
+        const res = await fetch(`${API_BASE}/api/v1/datasets/upload`, { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          activeDatasetId = data.dataset_id;
+          backendAvailable = true;
+          document.getElementById('statusDot').classList.add('active');
+          document.getElementById('sourceStatus').textContent = `${data.filename} • Backend Connected`;
+        }
+      } catch (err) {
+        console.warn('Auto-upload to backend failed:', err);
+      }
+    }
+
+    async function submitQuestion() {
+      const input = document.getElementById('questionInput');
+      const q = input.value.trim();
+      if (!q) return;
+
+      if (!loadedDataRows.length) {
+        alert("Please upload a CSV or Excel file first!");
+        document.getElementById('fileInput').click();
+        return;
+      }
+
+      const askBtn = document.getElementById('askBtn');
+      askBtn.disabled = true;
+      askBtn.textContent = 'Analyzing...';
+
+      const resultsCard = document.getElementById('resultsCard');
+      resultsCard.style.display = 'flex';
+      document.getElementById('resultQuestion').textContent = `Question: "${q}"`;
+      document.getElementById('resultSummary').textContent = 'Analyzing query...';
+      document.getElementById('resultInsights').innerHTML = '';
+      document.getElementById('chartBox').style.display = 'none';
+      document.getElementById('tableBox').innerHTML = '';
+
+      if (backendAvailable) {
+        if (!activeDatasetId && loadedDataRows.length) {
+          await uploadCurrentDataToBackend();
+        }
+        if (activeDatasetId) {
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/analytics/query`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dataset_id: activeDatasetId, question: q })
+            });
+            const data = await res.json();
+            if (res.ok) {
+              renderResults(data.answer_summary, data.key_insights || [], data.result_data || [], data.sql_executed || '');
+              askBtn.disabled = false;
+              askBtn.textContent = 'Ask Question';
+              return;
+            } else {
+              console.warn("Backend error returned:", data.detail);
+            }
+          } catch (e) {
+            console.warn("Backend query failed, falling back to local calculation:", e);
+          }
+        }
+      }
+
+      setTimeout(() => {
+        executeLocalCalculation(q);
+        askBtn.disabled = false;
+        askBtn.textContent = 'Ask Question';
+      }, 300);
+    }
+
+    function executeLocalCalculation(question) {
+      const qLower = question.toLowerCase();
+      const numCols = loadedColumns.filter(c => c.dtype === 'number');
+      const catCols = loadedColumns.filter(c => c.dtype === 'string');
+
+      // Filter out year, id, code from default numeric candidates
+      const candidateNums = numCols.filter(c => {
+        const name = c.name.toLowerCase();
+        return !name.includes('year') && !name.includes('id') && !name.includes('code') && !name.includes('date');
+      });
+      const usableNums = candidateNums.length ? candidateNums : numCols;
+
+      // Smart semantic mapping
+      let targetNum = null;
+      if (qLower.includes('spending') || qLower.includes('spend') || qLower.includes('cost') || qLower.includes('expenditure') || qLower.includes('usd') || qLower.includes('price')) {
+        targetNum = usableNums.find(c => c.name.includes('spend') || c.name.includes('cost') || c.name.includes('usd') || c.name.includes('price'));
+      } else if (qLower.includes('expectancy') || qLower.includes('life') || qLower.includes('longevity') || qLower.includes('age')) {
+        targetNum = usableNums.find(c => c.name.includes('expect') || c.name.includes('life') || c.name.includes('age'));
+      } else if (qLower.includes('sales') || qLower.includes('revenue')) {
+        targetNum = usableNums.find(c => c.name.includes('sales') || c.name.includes('revenue'));
+      } else if (qLower.includes('profit') || qLower.includes('margin')) {
+        targetNum = usableNums.find(c => c.name.includes('profit') || c.name.includes('margin'));
+      } else if (qLower.includes('order') || qLower.includes('quantity') || qLower.includes('qty')) {
+        targetNum = usableNums.find(c => c.name.includes('order') || c.name.includes('qty'));
+      }
+
+      if (!targetNum) {
+        targetNum = usableNums.find(c => qLower.includes(c.name.toLowerCase())) || usableNums[0];
+      }
+
+      // Semantic categorical mapping
+      let targetCat = catCols.find(c => qLower.includes(c.name.toLowerCase())) || catCols[0] || { name: 'category' };
+
+      // Year detection (e.g. 2020, 1970)
+      const yearMatch = question.match(/\b(19\d\d|20\d\d)\b/);
+      const yearVal = yearMatch ? Number(yearMatch[1]) : null;
+
+      let workingRows = loadedDataRows;
+      if (yearVal) {
+        const filtered = loadedDataRows.filter(r => {
+          const y = Number(r.year ?? r.Year ?? r.YEAR);
+          return y === yearVal;
+        });
+        if (filtered.length > 0) workingRows = filtered;
+      }
+
+      // Direction: Lowest vs Highest
+      const isLowest = /\b(lowest|minimum|least|bottom|cheapest|smallest|min)\b/i.test(question);
+
+      if (targetNum && targetCat) {
+        const groups = {};
+        workingRows.forEach(row => {
+          const key = String(row[targetCat.name] || 'Other');
+          const val = Number(row[targetNum.name]) || 0;
+          if (!groups[key]) groups[key] = { sum: 0, count: 0, latestVal: val };
+          groups[key].sum += val;
+          groups[key].count += 1;
+          groups[key].latestVal = val;
+        });
+
+        const sorted = Object.entries(groups)
+          .map(([k, v]) => {
+            const item = {};
+            item[targetCat.name] = k;
+            // If year filtered or single item, use exact value; if multiple years, use average
+            const finalVal = (yearVal || v.count === 1) ? v.latestVal : (v.sum / v.count);
+            item[targetNum.name] = Math.round(finalVal * 100) / 100;
+            return item;
+          })
+          .sort((a, b) => isLowest ? (a[targetNum.name] - b[targetNum.name]) : (b[targetNum.name] - a[targetNum.name]));
+
+        const top = sorted.slice(0, 10);
+        const primary = top[0];
+        const opposite = sorted[sorted.length - 1];
+        const yearText = yearVal ? ` in ${yearVal}` : '';
+        const isMoney = targetNum.name.toLowerCase().includes('usd') || targetNum.name.toLowerCase().includes('spend') || targetNum.name.toLowerCase().includes('sales');
+        const prefix = isMoney ? '$' : '';
+
+        let summary = '';
+        let insights = [];
+
+        if (isLowest) {
+          summary = `In ${loadedFileName}${yearText}, ${primary[targetCat.name]} had the LOWEST ${targetNum.name} at ${prefix}${primary[targetNum.name].toLocaleString()}. By comparison, the highest was ${opposite[targetCat.name]} at ${prefix}${opposite[targetNum.name].toLocaleString()}.`;
+          insights = [
+            `<b>Lowest:</b> ${primary[targetCat.name]} recorded ${prefix}${primary[targetNum.name].toLocaleString()} ${yearText}.`,
+            `<b>Highest Comparison:</b> ${opposite[targetCat.name]} recorded ${prefix}${opposite[targetNum.name].toLocaleString()} (${Math.round((opposite[targetNum.name] / (primary[targetNum.name] || 1)) * 10) / 10}x higher).`,
+            `<b>Total Evaluated:</b> Compared across ${sorted.length} distinct ${targetCat.name}s.`
+          ];
+        } else {
+          summary = `In ${loadedFileName}${yearText}, ${primary[targetCat.name]} had the HIGHEST ${targetNum.name} at ${prefix}${primary[targetNum.name].toLocaleString()}. By comparison, the lowest was ${opposite[targetCat.name]} at ${prefix}${opposite[targetNum.name].toLocaleString()}.`;
+          insights = [
+            `<b>Top Performer:</b> ${primary[targetCat.name]} leads with ${prefix}${primary[targetNum.name].toLocaleString()} ${yearText}.`,
+            `<b>Lowest Comparison:</b> ${opposite[targetCat.name]} recorded ${prefix}${opposite[targetNum.name].toLocaleString()}.`,
+            `<b>Total Evaluated:</b> Compared across ${sorted.length} distinct ${targetCat.name}s.`
+          ];
+        }
+
+        const sql = `SELECT ${targetCat.name}, ${yearVal ? targetNum.name : `ROUND(AVG(${targetNum.name}), 2) AS ${targetNum.name}`} FROM dataset ${yearVal ? `WHERE year = ${yearVal}` : ''} GROUP BY ${targetCat.name} ORDER BY ${targetNum.name} ${isLowest ? 'ASC' : 'DESC'} LIMIT 10;`;
+
+        renderResults(summary, insights, top, sql);
+      } else {
+        renderResults(
+          `Results for "${question}" on ${loadedFileName} (${loadedDataRows.length.toLocaleString()} rows).`,
+          [`Columns profiled: ${loadedColumns.map(c => c.name).join(', ')}`],
+          loadedDataRows.slice(0, 10),
+          `SELECT * FROM dataset LIMIT 10;`
+        );
+      }
+    }
+
+    function renderResults(summary, insights, rows, sql) {
+      currentQueryRows = rows || [];
+      currentRawSql = sql || '';
+
+      const resultsCard = document.getElementById('resultsCard');
+      resultsCard.style.display = 'flex';
+      document.getElementById('resultSummary').textContent = summary;
+
+      const insightsList = document.getElementById('resultInsights');
+      insightsList.innerHTML = (insights || []).map(i => `<li>${i}</li>`).join('');
+
+      document.getElementById('sqlCode').textContent = currentRawSql || 'N/A';
+      document.getElementById('tableRowCount').textContent = `${currentQueryRows.length} ${currentQueryRows.length === 1 ? 'row' : 'rows'} returned`;
+
+      const tableBox = document.getElementById('tableBox');
+      if (currentQueryRows.length) {
+        const cols = Object.keys(currentQueryRows[0]);
+        const header = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+        const body = currentQueryRows.map(r => `<tr>${cols.map(c => `<td>${r[c] ?? ''}</td>`).join('')}</tr>`).join('');
+        tableBox.innerHTML = `<table><thead>${header}</thead><tbody>${body}</tbody></table>`;
+        renderChart(currentQueryRows);
+      } else {
+        tableBox.innerHTML = '<div style="padding:10px; color:var(--text-muted); font-size:12px;">No records returned.</div>';
+        document.getElementById('chartBox').style.display = 'none';
+      }
+    }
+
+    function renderChart(rows) {
+      if (!rows || rows.length < 2) {
+        document.getElementById('chartBox').style.display = 'none';
+        return;
+      }
+
+      const cols = Object.keys(rows[0]);
+      const labelCol = cols.find(c => typeof rows[0][c] === 'string') || cols[0];
+      const numCol = cols.find(c => c !== labelCol && typeof rows[0][c] === 'number');
+
+      if (!numCol) {
+        document.getElementById('chartBox').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('chartBox').style.display = 'block';
+      document.getElementById('chartTitle').textContent = `${numCol.replace(/_/g, ' ')} by ${labelCol.replace(/_/g, ' ')}`;
+
+      const ctx = document.getElementById('myChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      const topRows = rows.slice(0, 10);
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: topRows.map(r => String(r[labelCol] || '').slice(0, 16)),
+          datasets: [{
+            label: numCol.replace(/_/g, ' '),
+            data: topRows.map(r => Number(r[numCol]) || 0),
+            backgroundColor: '#2563eb',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#64748b' } },
+            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' } }
+          }
+        }
+      });
+    }
+
+    function copySql() {
+      if (!currentRawSql) return;
+      navigator.clipboard.writeText(currentRawSql).then(() => {
+        const btn = document.getElementById('copySqlBtn');
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = '📋 Copy SQL'; }, 1800);
+      });
+    }
+
+    function downloadCSV() {
+      if (!currentQueryRows || !currentQueryRows.length) return;
+      const cols = Object.keys(currentQueryRows[0]);
+      const csvLines = [
+        cols.join(','),
+        ...currentQueryRows.map(row => cols.map(c => `"${String(row[c] ?? '').replace(/"/g, '""')}"`).join(','))
+      ];
+      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${loadedFileName ? loadedFileName.replace(/\.[^/.]+$/, "") : "query"}_results.csv`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
